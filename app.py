@@ -106,7 +106,7 @@ else:
     send_message("File not found. Please upload the file and try again.", "ai", save=False)
 
 paint_history()
-message = st.chat_input("메세지 PegGPT")
+message = st.chat_input("메세지 PetgGPT")
 
 if message and retriever:
     send_message(message, "human")
