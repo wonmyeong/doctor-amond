@@ -83,12 +83,12 @@ prompt = ChatPromptTemplate.from_messages(
     ]
 )
 
-st.title("DocumentGPT")
+st.title("PetGPT")
 
 st.markdown(
     """
-    Welcome!
-    Use this chatbot to ask questions to an AI about your files!
+    안녕하세요 PetGPT입니다!!!!
+    반려견에 관해 궁금한 점 있으시면 질문해 주세요🐕🐕🐕
     """
 )
 
@@ -106,7 +106,7 @@ else:
     send_message("File not found. Please upload the file and try again.", "ai", save=False)
 
 paint_history()
-message = st.chat_input("Ask anything about your file...")
+message = st.chat_input("메세지 PegGPT")
 
 if message and retriever:
     send_message(message, "human")
