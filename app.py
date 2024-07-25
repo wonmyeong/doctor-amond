@@ -39,7 +39,7 @@ llm = ChatOpenAI(temperature=0.1, streaming=True, callbacks=[ChatCallbackHandler
 def embed_file(file_path):
     
     file_name = os.path.basename(file_path)
-    cache_dir = LocalFileStore(f"./.cache/embeddings/{file_name}")
+    cache_dir = LocalFileStore(f"./embeddings_cache/{file_name}")
     splitter = CharacterTextSplitter.from_tiktoken_encoder(
         separator="\n",
         chunk_size=600,
