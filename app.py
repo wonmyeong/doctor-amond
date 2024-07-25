@@ -29,11 +29,11 @@ class ChatCallbackHandler(BaseCallbackHandler):
 
 llm = ChatOpenAI(temperature=0.1, streaming=True, callbacks=[ChatCallbackHandler()])
 
-@st.cache_resource(show_spinner="Embedding file...")
+@st.cache_data(show_spinner="Embedding file...")
 def embed_file(file_path):
     try:
         file_name = os.path.basename(file_path)
-        cache_dir = LocalFileStore(f"./embeddings_cache/{file_name}")
+        cache_dir = LocalFileStore(f"/tmp/embeddings_cache/{file_name}")
         splitter = CharacterTextSplitter.from_tiktoken_encoder(
             separator="\n",
             chunk_size=600,
@@ -89,20 +89,18 @@ st.markdown(
     """
 )
 
-uploaded_file = st.file_uploader("Upload a file", type=["txt", "pdf", "docx"])
+# 미리 업로드된 파일 경로 설정
+file_path = "dog_health.txt"
 
-if uploaded_file:
-    with st.spinner("Processing file..."):
-        file_path = os.path.join("/tmp", uploaded_file.name)
-        with open(file_path, "wb") as f:
-            f.write(uploaded_file.getbuffer())
-        retriever = embed_file(file_path)
-        if retriever:
-            send_message("File uploaded and processed successfully! Ask away!", "ai", save=False)
-        else:
-            send_message("Failed to process the file. Please try again.", "ai", save=False)
+# 파일이 존재하는지 확인
+if os.path.exists(file_path):
+    retriever = embed_file(file_path)
+    if retriever:
+        send_message("File loaded and processed successfully! Ask away!", "ai", save=False)
+    else:
+        send_message("Failed to process the file. Please try again.", "ai", save=False)
 else:
-    send_message("Please upload a file to begin.", "ai", save=False)
+    send_message("File not found. Please upload the file and try again.", "ai", save=False)
 
 paint_history()
 message = st.chat_input("Ask anything about your file...")
@@ -120,6 +118,5 @@ if message and retriever:
 
     with st.chat_message("ai"):
         response = chain.invoke(message)
-        
 
 
