@@ -10,7 +10,10 @@ from langchain.prompts import ChatPromptTemplate
 from langchain.callbacks.base import BaseCallbackHandler
 from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
 
-st.set_page_config(page_title="DocumentGPT", page_icon="📃")
+st.set_page_config(
+    page_title="PetGPT",
+    page_icon="🐶",
+)
 
 class ChatCallbackHandler(BaseCallbackHandler):
     def __init__(self):
