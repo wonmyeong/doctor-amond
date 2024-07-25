@@ -1,7 +1,5 @@
 import os
-import time
-from typing import Dict, List
-from uuid import UUID
+import streamlit as st
 from langchain.document_loaders import UnstructuredFileLoader
 from langchain.embeddings import CacheBackedEmbeddings, OpenAIEmbeddings
 from langchain.storage import LocalFileStore
@@ -9,49 +7,48 @@ from langchain.text_splitter import CharacterTextSplitter
 from langchain.vectorstores.faiss import FAISS
 from langchain.chat_models import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
-from langchain.callbacks import StreamingStdOutCallbackHandler
-import streamlit as st
-from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
-from langchain.chat_models import ChatOpenAI
 from langchain.callbacks.base import BaseCallbackHandler
+from langchain.schema.runnable import RunnableLambda, RunnablePassthrough
 
-st.set_page_config(
-    page_title="DocumentGPT",
-    page_icon="📃",
-)
+st.set_page_config(page_title="DocumentGPT", page_icon="📃")
 
 class ChatCallbackHandler(BaseCallbackHandler):
-    message = ""
-    
+    def __init__(self):
+        self.message = ""
+        self.message_box = None
+
     def on_llm_start(self, *args, **kwargs):
         self.message_box = st.empty()
-    
+
     def on_llm_end(self, *args, **kwargs):
         save_message(self.message, "ai")
-        
+
     def on_llm_new_token(self, token, *args, **kwargs):
         self.message += token
         self.message_box.markdown(self.message)
 
 llm = ChatOpenAI(temperature=0.1, streaming=True, callbacks=[ChatCallbackHandler()])
 
-@st.cache_data(show_spinner="Embedding file...")
+@st.cache_resource(show_spinner="Embedding file...")
 def embed_file(file_path):
-    
-    file_name = os.path.basename(file_path)
-    cache_dir = LocalFileStore(f"./embeddings_cache/{file_name}")
-    splitter = CharacterTextSplitter.from_tiktoken_encoder(
-        separator="\n",
-        chunk_size=600,
-        chunk_overlap=100
-    )
-    loader = UnstructuredFileLoader(file_path)
-    docs = loader.load_and_split(text_splitter=splitter)
-    embeddings = OpenAIEmbeddings()
-    cached_embeddings = CacheBackedEmbeddings.from_bytes_store(embeddings, cache_dir)
-    vectorstore = FAISS.from_documents(docs, cached_embeddings)
-    retriever = vectorstore.as_retriever()
-    return retriever
+    try:
+        file_name = os.path.basename(file_path)
+        cache_dir = LocalFileStore(f"./embeddings_cache/{file_name}")
+        splitter = CharacterTextSplitter.from_tiktoken_encoder(
+            separator="\n",
+            chunk_size=600,
+            chunk_overlap=100
+        )
+        loader = UnstructuredFileLoader(file_path)
+        docs = loader.load_and_split(text_splitter=splitter)
+        embeddings = OpenAIEmbeddings()
+        cached_embeddings = CacheBackedEmbeddings.from_bytes_store(embeddings, cache_dir)
+        vectorstore = FAISS.from_documents(docs, cached_embeddings)
+        retriever = vectorstore.as_retriever()
+        return retriever
+    except Exception as e:
+        st.error(f"Error embedding file: {e}")
+        return None
 
 def save_message(message, role):
     if "messages" not in st.session_state:
@@ -74,9 +71,7 @@ def format_docs(docs):
 
 prompt = ChatPromptTemplate.from_messages(
     [
-        (
-            "system",
-            """
+        ("system", """
             Answer the question using ONLY the following context. If you don't know the answer just say you don't know. DON'T make anything up.
             Context : {context}
             """
@@ -94,24 +89,35 @@ st.markdown(
     """
 )
 
-# Directly specify the file path you want to use
-file_path = "C:\\Users\\wmk51\\Final_Project\\.cache\\files\\dog_health.txt"
+uploaded_file = st.file_uploader("Upload a file", type=["txt", "pdf", "docx"])
 
+if uploaded_file:
+    with st.spinner("Processing file..."):
+        file_path = os.path.join("/tmp", uploaded_file.name)
+        with open(file_path, "wb") as f:
+            f.write(uploaded_file.getbuffer())
+        retriever = embed_file(file_path)
+        if retriever:
+            send_message("File uploaded and processed successfully! Ask away!", "ai", save=False)
+        else:
+            send_message("Failed to process the file. Please try again.", "ai", save=False)
+else:
+    send_message("Please upload a file to begin.", "ai", save=False)
 
-retriever = embed_file(file_path)
-send_message("I'm ready! Ask away!", "ai", save=False)
 paint_history()
 message = st.chat_input("Ask anything about your file...")
 
-if message:
+if message and retriever:
     send_message(message, "human")
-    chain = ({
-        "context": retriever | RunnableLambda(format_docs),
-        "question": RunnablePassthrough(),
-    }
-    | prompt
-    | llm)
-    
+    chain = (
+        {
+            "context": retriever | RunnableLambda(format_docs),
+            "question": RunnablePassthrough(),
+        }
+        | prompt
+        | llm
+    )
+
     with st.chat_message("ai"):
         response = chain.invoke(message)
         
